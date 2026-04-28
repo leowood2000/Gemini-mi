@@ -1,0 +1,2 @@
+-keep class com.vince.geminimi.** { *; }
+-keepclassmembers class * implements de.robv.android.xposed.IXposedHookLoadPackage { *; }
