@@ -46,6 +46,13 @@ PowerShell 生成 `SIGNING_KEYSTORE_BASE64`：
 [Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore"))
 ```
 
+首次初始化可直接运行仓库内脚本。它会生成独立的 `geminimi-release.p12`、提示输入密码，
+并将 4 个 `SIGNING_*` Secrets 写入当前 GitHub 仓库；keystore 不会加入 Git：
+
+```powershell
+.\scripts\setup-release-signing.ps1
+```
+
 首次发布可在版本已更新并提交后执行：
 
 ```text
