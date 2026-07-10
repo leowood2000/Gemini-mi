@@ -121,7 +121,7 @@ public final class PowerKeyOverlayHook {
                     "com.android.internal.app.IVoiceInteractionManagerService$Stub", null);
             Object svc = XposedHelpers.callStaticMethod(stub, "asInterface", binder);
             if (svc == null) return false;
-            Object result = invokeBest(svc, "showSessionForActiveService");
+            Object result = invokeKnown(svc, "showSessionForActiveService");
             if (result instanceof Boolean && !((Boolean) result)) return false;
             XposedBridge.log(Constants.TAG
                     + " launched via showSessionForActiveService() (overlay path)");
@@ -150,7 +150,7 @@ public final class PowerKeyOverlayHook {
                     "com.android.internal.statusbar.IStatusBarService$Stub", null);
             Object statusBar = XposedHelpers.callStaticMethod(stub, "asInterface", binder);
             if (statusBar == null) return false;
-            Object result = invokeBest(statusBar, "startAssist");
+            Object result = invokeKnown(statusBar, "startAssist");
             if (result instanceof Boolean && !((Boolean) result)) return false;
             XposedBridge.log(Constants.TAG
                     + " launched via IStatusBarService.startAssist() (overlay path)");
@@ -161,11 +161,11 @@ public final class PowerKeyOverlayHook {
         }
     }
 
-    private static Object invokeBest(Object target, String name) throws Throwable {
+    private static Object invokeKnown(Object target, String name) throws Throwable {
         java.lang.reflect.Method best = null;
         for (java.lang.reflect.Method m : target.getClass().getMethods()) {
             if (!name.equals(m.getName())) continue;
-            if (canBuildArgs(m.getParameterTypes())) {
+            if (isKnownSignature(name, m.getParameterTypes())) {
                 best = m;
                 break;
             }
@@ -173,7 +173,7 @@ public final class PowerKeyOverlayHook {
         if (best == null) {
             for (java.lang.reflect.Method m : target.getClass().getDeclaredMethods()) {
                 if (!name.equals(m.getName())) continue;
-                if (canBuildArgs(m.getParameterTypes())) {
+                if (isKnownSignature(name, m.getParameterTypes())) {
                     best = m;
                     break;
                 }
@@ -189,17 +189,29 @@ public final class PowerKeyOverlayHook {
         return best.invoke(target, args);
     }
 
-    private static boolean canBuildArgs(Class<?>[] pts) {
+    private static boolean isKnownSignature(String name, Class<?>[] pts) {
+        if ("startAssist".equals(name)) {
+            return pts.length == 1 && pts[0] == android.os.Bundle.class;
+        }
+        if (!"showSessionForActiveService".equals(name)) return false;
+
+        boolean hasBundle = false;
+        boolean hasFlags = false;
         for (Class<?> pt : pts) {
-            if (pt == android.os.Bundle.class) continue;
-            if (pt == String.class) continue;
-            if (pt == int.class || pt == Integer.class) continue;
+            if (pt == android.os.Bundle.class) {
+                hasBundle = true;
+                continue;
+            }
+            if (pt == int.class || pt == Integer.class) {
+                hasFlags = true;
+                continue;
+            }
             if (pt == boolean.class || pt == Boolean.class) continue;
             if (pt == android.os.IBinder.class) continue;
-            if (!pt.isPrimitive()) continue;
+            if (pt.isInterface() && pt.getSimpleName().endsWith("Callback")) continue;
             return false;
         }
-        return true;
+        return hasBundle && hasFlags;
     }
 
     private static Object[] buildArgs(Class<?>[] pts) {
