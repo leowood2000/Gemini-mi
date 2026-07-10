@@ -15,6 +15,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public final class XiaoAiPowerKeyDisableHook {
 
     private XiaoAiPowerKeyDisableHook() {}
+    private static final String POWER_WAKEUP_KEY = "power_wakeup";
 
     public static void apply(XC_LoadPackage.LoadPackageParam lpp) {
         // SharedPreferences / Editor 是接口，hook 会抛 "Cannot hook abstract methods"。
@@ -29,8 +30,7 @@ public final class XiaoAiPowerKeyDisableHook {
                         @Override
                         protected void beforeHookedMethod(MethodHookParam param) {
                             String key = (String) param.args[0];
-                            if (key == null) return;
-                            if (key.contains("power") && key.contains("wake")) {
+                            if (POWER_WAKEUP_KEY.equals(key)) {
                                 param.args[1] = false;
                             }
                         }
@@ -48,8 +48,7 @@ public final class XiaoAiPowerKeyDisableHook {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
                             String key = (String) param.args[0];
-                            if (key == null) return;
-                            if (key.contains("power") && key.contains("wake")) {
+                            if (POWER_WAKEUP_KEY.equals(key)) {
                                 param.setResult(false);
                             }
                         }

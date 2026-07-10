@@ -17,10 +17,6 @@ public class MainHook implements IXposedHookLoadPackage {
                 PowerKeyOverlayHook.apply(lpp);
                 AssistantPersistHook.applySystemServer(lpp);
                 break;
-            case Constants.SETTINGS:
-            case Constants.SECURITY:
-                AssistantPersistHook.applySettings(lpp);
-                break;
             case Constants.XIAOAI_PKG:
                 XiaoAiPowerKeyDisableHook.apply(lpp);
                 break;

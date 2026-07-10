@@ -29,6 +29,7 @@ public final class AssistantPersistHook {
 
     private AssistantPersistHook() {}
     private static boolean sUserReceiverRegistered;
+    private static volatile boolean sBlockBootRewrite = true;
 
     public static void applySystemServer(XC_LoadPackage.LoadPackageParam lpp) {
         try {
@@ -61,6 +62,7 @@ public final class AssistantPersistHook {
                             if (!(keyObj instanceof String) || !(valObj instanceof String)) return;
                             String key = (String) keyObj;
                             String val = (String) valObj;
+                            if (!sBlockBootRewrite) return;
                             boolean wantsXiaoAi = val.contains("voiceassist")
                                     || val.contains("xiaomi.voiceassistant");
                             if (!wantsXiaoAi) return;
@@ -82,67 +84,6 @@ public final class AssistantPersistHook {
         }
     }
 
-    public static void applySettings(XC_LoadPackage.LoadPackageParam lpp) {
-        try {
-            XposedHelpers.findAndHookMethod(Settings.Secure.class, "getStringForUser",
-                    ContentResolver.class, String.class, int.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            String key = (String) param.args[1];
-                            if (key == null) return;
-                            switch (key) {
-                                case Constants.SECURE_ASSISTANT:
-                                case Constants.SECURE_VOICE_INTERACT:
-                                    param.setResult(Constants.GSB_ASSIST_SERVICE);
-                                    break;
-                                case Constants.SECURE_VOICE_RECOG:
-                                    param.setResult(Constants.GSB_RECOG_SERVICE);
-                                    break;
-                                default:
-                            }
-                        }
-                    });
-        } catch (Throwable t) {
-            XposedBridge.log(Constants.TAG + " AssistantPersist settings hook failed: " + t);
-        }
-
-        try {
-            XposedHelpers.findAndHookMethod(Settings.Secure.class, "getInt",
-                    ContentResolver.class, String.class, int.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            String key = (String) param.args[1];
-                            if (Constants.SECURE_ASSIST_STRUCTURE.equals(key)
-                                    || Constants.SECURE_ASSIST_SCREENSHOT.equals(key)) {
-                                param.setResult(1);
-                            }
-                        }
-                    });
-        } catch (Throwable t) {
-            XposedBridge.log(Constants.TAG + " AssistantPersist secure int hook failed: " + t);
-        }
-
-        // Settings.Global.getIntForUser 在 HyperOS 上 4-参签名缺失，直接 hook
-        // 公共的 3-参 getInt(cr, name, def)。framework 内部最终都会落到这条。
-        try {
-            XposedHelpers.findAndHookMethod(Settings.Global.class, "getInt",
-                    ContentResolver.class, String.class, int.class,
-                    new XC_MethodHook() {
-                        @Override
-                        protected void afterHookedMethod(MethodHookParam param) {
-                            String key = (String) param.args[1];
-                            if (Constants.GLOBAL_POWER_LONG_PRESS.equals(key)) {
-                                param.setResult(Constants.LONG_PRESS_POWER_ASSIST);
-                            }
-                        }
-                    });
-        } catch (Throwable t) {
-            XposedBridge.log(Constants.TAG + " AssistantPersist global hook failed: " + t);
-        }
-    }
-
     private static Context getSystemContext() {
         try {
             Class<?> at = XposedHelpers.findClass("android.app.ActivityThread", null);
@@ -156,10 +97,18 @@ public final class AssistantPersistHook {
     private static synchronized void registerUserReceiver(Context context) {
         if (context == null || sUserReceiverRegistered) return;
         try {
-            IntentFilter filter = new IntentFilter(Intent.ACTION_USER_UNLOCKED);
+            IntentFilter filter = new IntentFilter();
+            filter.addAction(Intent.ACTION_USER_UNLOCKED);
+            filter.addAction(Intent.ACTION_BOOT_COMPLETED);
             context.registerReceiver(new BroadcastReceiver() {
                 @Override
                 public void onReceive(Context receiverContext, Intent intent) {
+                    if (Intent.ACTION_BOOT_COMPLETED.equals(intent.getAction())) {
+                        sBlockBootRewrite = false;
+                        XposedBridge.log(Constants.TAG
+                                + " boot rewrite guard disabled after boot completed");
+                        return;
+                    }
                     int userId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
                     try {
                         Context userContext = receiverContext.createContextAsUser(
