@@ -1,7 +1,10 @@
 package com.vince.geminimi.hooks;
 
+import android.content.BroadcastReceiver;
 import android.content.ContentResolver;
 import android.content.Context;
+import android.content.Intent;
+import android.content.IntentFilter;
 import android.provider.Settings;
 
 import com.vince.geminimi.Constants;
@@ -25,6 +28,7 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public final class AssistantPersistHook {
 
     private AssistantPersistHook() {}
+    private static boolean sUserReceiverRegistered;
 
     public static void applySystemServer(XC_LoadPackage.LoadPackageParam lpp) {
         try {
@@ -34,7 +38,9 @@ public final class AssistantPersistHook {
                     new XC_MethodHook() {
                         @Override
                         protected void afterHookedMethod(MethodHookParam param) {
-                            writeAll(getSystemContext());
+                            Context context = getSystemContext();
+                            writeAll(context);
+                            registerUserReceiver(context);
                         }
                     });
         } catch (Throwable t) {
@@ -147,22 +153,54 @@ public final class AssistantPersistHook {
         }
     }
 
+    private static synchronized void registerUserReceiver(Context context) {
+        if (context == null || sUserReceiverRegistered) return;
+        try {
+            IntentFilter filter = new IntentFilter(Intent.ACTION_USER_UNLOCKED);
+            context.registerReceiver(new BroadcastReceiver() {
+                @Override
+                public void onReceive(Context receiverContext, Intent intent) {
+                    int userId = intent.getIntExtra(Intent.EXTRA_USER_HANDLE, 0);
+                    try {
+                        Context userContext = receiverContext.createContextAsUser(
+                                android.os.UserHandle.of(userId), 0);
+                        writeAll(userContext);
+                    } catch (Throwable t) {
+                        XposedBridge.log(Constants.TAG + " user " + userId
+                                + " settings write failed: " + t);
+                    }
+                }
+            }, filter);
+            sUserReceiverRegistered = true;
+        } catch (Throwable t) {
+            XposedBridge.log(Constants.TAG + " user receiver registration failed: " + t);
+        }
+    }
+
     private static void writeAll(Context ctx) {
         if (ctx == null) return;
         ContentResolver cr = ctx.getContentResolver();
         try {
-            Settings.Secure.putString(cr, Constants.SECURE_ASSISTANT,
+            boolean success = true;
+            success &= Settings.Secure.putString(cr, Constants.SECURE_ASSISTANT,
                     Constants.GSB_ASSIST_SERVICE);
-            Settings.Secure.putString(cr, Constants.SECURE_VOICE_INTERACT,
+            success &= Settings.Secure.putString(cr, Constants.SECURE_VOICE_INTERACT,
                     Constants.GSB_ASSIST_SERVICE);
-            Settings.Secure.putString(cr, Constants.SECURE_VOICE_RECOG,
+            success &= Settings.Secure.putString(cr, Constants.SECURE_VOICE_RECOG,
                     Constants.GSB_RECOG_SERVICE);
-            Settings.Secure.putInt(cr, Constants.SECURE_ASSIST_STRUCTURE, 1);
-            Settings.Secure.putInt(cr, Constants.SECURE_ASSIST_SCREENSHOT, 1);
-            Settings.Global.putInt(cr, Constants.GLOBAL_POWER_LONG_PRESS,
+            success &= Settings.Secure.putInt(cr, Constants.SECURE_ASSIST_STRUCTURE, 1);
+            success &= Settings.Secure.putInt(cr, Constants.SECURE_ASSIST_SCREENSHOT, 1);
+            success &= Settings.Global.putInt(cr, Constants.GLOBAL_POWER_LONG_PRESS,
                     Constants.LONG_PRESS_POWER_ASSIST);
-            XposedBridge.log(Constants.TAG + " wrote assistant/vis="
-                    + Constants.GSB_ASSIST_SERVICE);
+
+            boolean verified = Constants.GSB_ASSIST_SERVICE.equals(Settings.Secure.getString(
+                    cr, Constants.SECURE_ASSISTANT))
+                    && Constants.GSB_ASSIST_SERVICE.equals(Settings.Secure.getString(
+                    cr, Constants.SECURE_VOICE_INTERACT))
+                    && Settings.Global.getInt(cr, Constants.GLOBAL_POWER_LONG_PRESS, -1)
+                    == Constants.LONG_PRESS_POWER_ASSIST;
+            XposedBridge.log(Constants.TAG + " assistant settings write success=" + success
+                    + " verified=" + verified);
         } catch (Throwable t) {
             XposedBridge.log(Constants.TAG + " writeAll failed: " + t);
         }
