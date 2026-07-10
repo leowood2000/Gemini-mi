@@ -2,13 +2,7 @@ package com.vince.geminimi.hooks;
 
 import android.content.ContentResolver;
 import android.content.Context;
-import android.content.Intent;
-import android.content.pm.PackageManager;
-import android.content.pm.ResolveInfo;
-import android.content.pm.ServiceInfo;
 import android.provider.Settings;
-
-import java.util.List;
 
 import com.vince.geminimi.Constants;
 
@@ -31,36 +25,6 @@ import de.robv.android.xposed.callbacks.XC_LoadPackage;
 public final class AssistantPersistHook {
 
     private AssistantPersistHook() {}
-
-    /** 运行时发现的 Bard VoiceInteractionService。null 表示走 GSB 兜底。 */
-    private static volatile String sGeminiVis;
-    /** 真正写到 Settings.Secure.assistant 的值（VIS 优先，其次 Activity）。 */
-    private static volatile String sAssistantValue = Constants.GEMINI_ASSISTANT_COMP;
-    /** 真正写到 Settings.Secure.voice_interaction_service 的值。 */
-    private static volatile String sVisValue = Constants.GSB_ASSIST_SERVICE;
-
-    private static void resolveGeminiVis(Context ctx) {
-        if (ctx == null) return;
-        try {
-            PackageManager pm = ctx.getPackageManager();
-            Intent probe = new Intent("android.service.voice.VoiceInteractionService")
-                    .setPackage(Constants.GEMINI_PKG);
-            List<ResolveInfo> infos = pm.queryIntentServices(probe,
-                    PackageManager.GET_META_DATA);
-            if (infos != null && !infos.isEmpty()) {
-                ServiceInfo si = infos.get(0).serviceInfo;
-                sGeminiVis = si.packageName + "/" + si.name;
-                sVisValue = sGeminiVis;
-                sAssistantValue = sGeminiVis;     // assistant 也要指向 VIS 才能弹 overlay
-                XposedBridge.log(Constants.TAG + " discovered Bard VIS: " + sGeminiVis);
-            } else {
-                XposedBridge.log(Constants.TAG
-                        + " Bard exposes no VoiceInteractionService; falling back to GSB");
-            }
-        } catch (Throwable t) {
-            XposedBridge.log(Constants.TAG + " resolveGeminiVis failed: " + t);
-        }
-    }
 
     public static void applySystemServer(XC_LoadPackage.LoadPackageParam lpp) {
         try {
@@ -95,15 +59,15 @@ public final class AssistantPersistHook {
                                     || val.contains("xiaomi.voiceassistant");
                             if (!wantsXiaoAi) return;
                             if (Constants.SECURE_VOICE_INTERACT.equals(key)) {
-                                param.args[2] = sVisValue;
+                                param.args[2] = Constants.GSB_ASSIST_SERVICE;
                                 XposedBridge.log(Constants.TAG
                                         + " blocked rewrite voice_interaction_service="
-                                        + val + " -> " + sVisValue);
+                                        + val + " -> " + Constants.GSB_ASSIST_SERVICE);
                             } else if (Constants.SECURE_ASSISTANT.equals(key)) {
-                                param.args[2] = sAssistantValue;
+                                param.args[2] = Constants.GSB_ASSIST_SERVICE;
                                 XposedBridge.log(Constants.TAG
                                         + " blocked rewrite assistant="
-                                        + val + " -> " + sAssistantValue);
+                                        + val + " -> " + Constants.GSB_ASSIST_SERVICE);
                             }
                         }
                     });
@@ -123,12 +87,8 @@ public final class AssistantPersistHook {
                             if (key == null) return;
                             switch (key) {
                                 case Constants.SECURE_ASSISTANT:
-                                    ensureResolved(param.args[0]);
-                                    param.setResult(sAssistantValue);
-                                    break;
                                 case Constants.SECURE_VOICE_INTERACT:
-                                    ensureResolved(param.args[0]);
-                                    param.setResult(sVisValue);
+                                    param.setResult(Constants.GSB_ASSIST_SERVICE);
                                     break;
                                 case Constants.SECURE_VOICE_RECOG:
                                     param.setResult(Constants.GSB_RECOG_SERVICE);
@@ -189,33 +149,22 @@ public final class AssistantPersistHook {
 
     private static void writeAll(Context ctx) {
         if (ctx == null) return;
-        resolveGeminiVis(ctx);
         ContentResolver cr = ctx.getContentResolver();
         try {
-            Settings.Secure.putString(cr, Constants.SECURE_ASSISTANT, sAssistantValue);
-            Settings.Secure.putString(cr, Constants.SECURE_VOICE_INTERACT, sVisValue);
+            Settings.Secure.putString(cr, Constants.SECURE_ASSISTANT,
+                    Constants.GSB_ASSIST_SERVICE);
+            Settings.Secure.putString(cr, Constants.SECURE_VOICE_INTERACT,
+                    Constants.GSB_ASSIST_SERVICE);
             Settings.Secure.putString(cr, Constants.SECURE_VOICE_RECOG,
                     Constants.GSB_RECOG_SERVICE);
             Settings.Secure.putInt(cr, Constants.SECURE_ASSIST_STRUCTURE, 1);
             Settings.Secure.putInt(cr, Constants.SECURE_ASSIST_SCREENSHOT, 1);
             Settings.Global.putInt(cr, Constants.GLOBAL_POWER_LONG_PRESS,
                     Constants.LONG_PRESS_POWER_ASSIST);
-            XposedBridge.log(Constants.TAG + " wrote assistant=" + sAssistantValue
-                    + " vis=" + sVisValue);
+            XposedBridge.log(Constants.TAG + " wrote assistant/vis="
+                    + Constants.GSB_ASSIST_SERVICE);
         } catch (Throwable t) {
             XposedBridge.log(Constants.TAG + " writeAll failed: " + t);
         }
-    }
-
-    private static void ensureResolved(Object cr) {
-        if (sGeminiVis != null) return;
-        try {
-            Context ctx = (Context) XposedHelpers.callMethod(
-                    XposedHelpers.callStaticMethod(
-                            XposedHelpers.findClass("android.app.ActivityThread", null),
-                            "currentActivityThread"),
-                    "getSystemContext");
-            resolveGeminiVis(ctx);
-        } catch (Throwable ignored) { }
     }
 }

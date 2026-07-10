@@ -29,8 +29,4 @@ public final class Constants {
             "com.google.android.googlequicksearchbox/com.google.android.voiceinteraction.GsaVoiceInteractionService";
     public static final String GSB_RECOG_SERVICE   =
             "com.google.android.googlequicksearchbox/com.google.android.voicesearch.serviceapi.GoogleRecognitionService";
-    // 当前 Bard 对外只暴露 BardEntryPointActivity (dumpsys package 验证)。
-    // 旧版本曾用 .surfaces.opa.OpaActivity，已不存在，写错会被 GSB 兜底接管。
-    public static final String GEMINI_ASSISTANT_COMP =
-            "com.google.android.apps.bard/com.google.android.apps.bard.shellapp.BardEntryPointActivity";
 }
