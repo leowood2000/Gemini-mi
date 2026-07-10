@@ -23,8 +23,35 @@
 gradlew :app:assembleRelease
 ```
 
-产物：`app/build/outputs/apk/release/app-release-unsigned.apk` —— 自签后在 LSPosed
-管理器里启用，作用域勾选 `android` / `com.miui.voiceassist`，重启生效。
+未配置签名信息时，产物为 `app/build/outputs/apk/release/app-release-unsigned.apk`；自签后
+在 LSPosed 管理器里启用，作用域勾选 `android` / `com.miui.voiceassist`，重启生效。
+
+## 自动发布
+
+推送 `v*` 格式的 tag（例如 `v1.0.0`）会触发 GitHub Actions：先执行测试、Lint 和 Debug
+构建，再构建已签名 release APK、验证签名、生成 SHA-256，并创建同名 GitHub Release。
+
+在 GitHub 仓库的 `Settings → Secrets and variables → Actions` 中配置以下 repository secrets：
+
+| Secret | 内容 |
+|---------|------|
+| `SIGNING_KEYSTORE_BASE64` | release keystore 文件的 Base64 内容 |
+| `SIGNING_STORE_PASSWORD` | keystore 密码 |
+| `SIGNING_KEY_ALIAS` | 签名 key alias |
+| `SIGNING_KEY_PASSWORD` | 签名 key 密码 |
+
+PowerShell 生成 `SIGNING_KEYSTORE_BASE64`：
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("release.keystore"))
+```
+
+首次发布可在版本已更新并提交后执行：
+
+```text
+git tag v1.0.0
+git push origin v1.0.0
+```
 
 ## 已知限制
 
