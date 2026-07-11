@@ -28,8 +28,10 @@ gradlew :app:assembleRelease
 
 ## 自动发布
 
-推送 `v*` 格式的 tag（例如 `v1.0.0`）会触发 GitHub Actions：先执行测试、Lint 和 Debug
-构建，再构建已签名 release APK、验证签名、生成 SHA-256，并创建同名 GitHub Release。
+推送 `v*` 格式的 tag（例如 `v1.0.1`），或 LSPosed 仓库要求的
+`VersionCode-VersionName` tag（例如 `2-1.0.1`），会触发 GitHub Actions：先执行测试、
+Lint 和 Debug 构建，再构建已签名 release APK、验证签名、生成 SHA-256，并创建同名
+GitHub Release。
 
 在 GitHub 仓库的 `Settings → Secrets and variables → Actions` 中配置以下 repository secrets：
 
