@@ -55,6 +55,12 @@ PowerShell 生成 `SIGNING_KEYSTORE_BASE64`：
 .\scripts\setup-release-signing.ps1
 ```
 
+为 LSPosed 官方仓库复用同一签名证书：
+
+```powershell
+.\scripts\setup-release-signing.ps1 -Repository Xposed-Modules-Repo/com.vince.geminimi
+```
+
 首次发布可在版本已更新并提交后执行：
 
 ```text
