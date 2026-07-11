@@ -207,6 +207,7 @@ public final class PowerKeyOverlayHook {
                 continue;
             }
             if (pt == boolean.class || pt == Boolean.class) continue;
+            if (pt == String.class) continue;
             if (pt == android.os.IBinder.class) continue;
             if (pt.isInterface() && pt.getSimpleName().endsWith("Callback")) continue;
             return false;

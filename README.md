@@ -64,6 +64,7 @@ assistant settings write success=true verified=true
 ## 已知限制
 
 - HyperOS 不同版本会修改 `PhoneWindowManager` 方法名，不能保证所有设备无需适配。
+- Android 16 / HyperOS 3 已适配带 attribution tag 的助手会话接口。
 - Overlay 依赖 Google App 的 VoiceInteractionService；仅安装 Gemini、不安装 Google App
   无法工作。
 - 模块会在用户解锁时重新写入 Google 助手设置。系统完成启动后，仍允许用户手动切换
