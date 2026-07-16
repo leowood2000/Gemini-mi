@@ -30,6 +30,7 @@ public final class PowerKeyOverlayHook {
     private static final int SHOW_SOURCE_PUSH_TO_TALK = 1 << 4;
     private static final int SHOW_POWER_ASSIST_WITH_SCREENSHOT =
             SHOW_WITH_ASSIST | SHOW_WITH_SCREENSHOT | SHOW_SOURCE_PUSH_TO_TALK;
+    private static final long STALE_SESSION_RESET_DELAY_MS = 120L;
 
     public static void apply(XC_LoadPackage.LoadPackageParam lpp) {
         ClassLoader cl = lpp.classLoader;
@@ -168,14 +169,10 @@ public final class PowerKeyOverlayHook {
 
     private static boolean tryShowSession() {
         try {
-            Class<?> sm = XposedHelpers.findClass("android.os.ServiceManager", null);
-            android.os.IBinder binder = (android.os.IBinder) XposedHelpers.callStaticMethod(
-                    sm, "getService", "voiceinteraction");
-            if (binder == null) return false;
-            Class<?> stub = XposedHelpers.findClass(
-                    "com.android.internal.app.IVoiceInteractionManagerService$Stub", null);
-            Object svc = XposedHelpers.callStaticMethod(stub, "asInterface", binder);
+            Object svc = voiceInteractionService();
             if (svc == null) return false;
+            hideCurrentSession(svc);
+            android.os.SystemClock.sleep(STALE_SESSION_RESET_DELAY_MS);
             Object result = invokeKnown(svc, "showSessionForActiveService");
             if (result instanceof Boolean && !((Boolean) result)) return false;
             XposedBridge.log(Constants.TAG
@@ -185,6 +182,41 @@ public final class PowerKeyOverlayHook {
             XposedBridge.log(Constants.TAG + " showSessionForActiveService failed: " + t);
             return false;
         }
+    }
+
+    private static Object voiceInteractionService() throws Throwable {
+        Class<?> sm = XposedHelpers.findClass("android.os.ServiceManager", null);
+        android.os.IBinder binder = (android.os.IBinder) XposedHelpers.callStaticMethod(
+                sm, "getService", "voiceinteraction");
+        if (binder == null) return null;
+        Class<?> stub = XposedHelpers.findClass(
+                "com.android.internal.app.IVoiceInteractionManagerService$Stub", null);
+        return XposedHelpers.callStaticMethod(stub, "asInterface", binder);
+    }
+
+    private static void hideCurrentSession(Object svc) {
+        try {
+            java.lang.reflect.Method method = findNoArgMethod(svc, "hideCurrentSession");
+            if (method == null) {
+                XposedBridge.log(Constants.TAG + " hideCurrentSession not available");
+                return;
+            }
+            method.setAccessible(true);
+            method.invoke(svc);
+            XposedBridge.log(Constants.TAG + " reset stale voice session");
+        } catch (Throwable t) {
+            XposedBridge.log(Constants.TAG + " hideCurrentSession failed: " + t);
+        }
+    }
+
+    private static java.lang.reflect.Method findNoArgMethod(Object target, String name) {
+        for (java.lang.reflect.Method m : target.getClass().getMethods()) {
+            if (name.equals(m.getName()) && m.getParameterTypes().length == 0) return m;
+        }
+        for (java.lang.reflect.Method m : target.getClass().getDeclaredMethods()) {
+            if (name.equals(m.getName()) && m.getParameterTypes().length == 0) return m;
+        }
+        return null;
     }
 
     private static android.os.Bundle assistArgs() {
