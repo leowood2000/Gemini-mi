@@ -18,7 +18,11 @@ public final class PowerKeyOverlayHook {
 
     private PowerKeyOverlayHook() {}
 
-    private static final String PWM = "com.android.server.policy.PhoneWindowManager";
+    private static final String[] POLICY_CLASSES = {
+            "com.android.server.policy.PhoneWindowManager",
+            "com.android.server.policy.BaseMiuiPhoneWindowManager",
+            "com.android.server.policy.MiuiPhoneWindowManager"
+    };
     private static final int SHOW_WITH_ASSIST = 1;
     private static final int SHOW_WITH_SCREENSHOT = 1 << 1;
     private static final int SHOW_SOURCE_PUSH_TO_TALK = 1 << 4;
@@ -27,23 +31,31 @@ public final class PowerKeyOverlayHook {
 
     public static void apply(XC_LoadPackage.LoadPackageParam lpp) {
         ClassLoader cl = lpp.classLoader;
-
-        Class<?> pwm;
-        try {
-            pwm = XposedHelpers.findClass(PWM, cl);
-        } catch (Throwable t) {
-            XposedBridge.log(Constants.TAG + " PhoneWindowManager not found: " + t);
-            return;
-        }
-
-        // 不再枚举固定名字。HyperOS 各版本把方法叫 launchSuperXiaoAi /
-        // launchXiaoAiOnPowerLong / launchXiaoAiByLongPressPower / launchAiKey ...
-        // 都不一样。统一用名字模式扫描：含 XiaoAi / Assist / Voice / AiKey 的全接管。
         int hooked = 0;
-        for (java.lang.reflect.Method m : pwm.getDeclaredMethods()) {
-            if (!HookPolicy.shouldHookPowerMethod(m)) continue;
-            hookOne(pwm, m);
-            hooked++;
+
+        // HyperOS 既可能沿用 AOSP PhoneWindowManager，也可能在小米策略子类里
+        // 覆写长按电源键逻辑。getDeclaredMethods() 不会返回子类方法，因此必须逐类
+        // 扫描；否则日志看起来已 hook AOSP 方法，实际按键却仍由小米子类直启小爱。
+        for (String className : POLICY_CLASSES) {
+            Class<?> policyClass;
+            try {
+                policyClass = XposedHelpers.findClass(className, cl);
+            } catch (Throwable t) {
+                XposedBridge.log(Constants.TAG + " optional policy class not found: "
+                        + className + " (" + t.getClass().getSimpleName() + ")");
+                continue;
+            }
+
+            for (java.lang.reflect.Method m : policyClass.getDeclaredMethods()) {
+                if (!HookPolicy.shouldHookPowerMethod(m)) continue;
+                try {
+                    hookOne(policyClass, m);
+                    hooked++;
+                } catch (Throwable t) {
+                    XposedBridge.log(Constants.TAG + " failed to hook " + className
+                            + "#" + m.getName() + ": " + t);
+                }
+            }
         }
         XposedBridge.log(Constants.TAG + " PowerKeyOverlay hooked " + hooked + " method(s)");
     }

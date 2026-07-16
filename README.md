@@ -71,6 +71,24 @@ assistant settings write success=true verified=true
   其他数字助理。
 - 模块运行在系统框架中。启用前请确保设备具备可用的 LSPosed 救砖/安全模式方案。
 
+## 本 Fork 的兼容性改进
+
+本 Fork 额外扫描 HyperOS 的 `BaseMiuiPhoneWindowManager` 和
+`MiuiPhoneWindowManager`，用于适配部分 HyperOS 2 国行 ROM 将长按电源键逻辑放在
+小米策略子类、并直接启动超级小爱的情况。只有 Gemini Overlay 成功启动时才拦截
+原方法；启动失败会继续执行系统原逻辑，避免长按电源键失效。
+
+本 Fork 的 Debug APK 使用本地调试证书签名，不能直接覆盖安装原作者正式版。测试前请
+先卸载原版，再安装 Debug APK，并在 LSPosed 中重新启用模块、勾选 `android` 和
+`com.miui.voiceassist` 后重启。不要同时启用两个不同来源的 GeminiMi 模块。
+
+## 致谢
+
+本项目 Fork 自 [SherlockChiang/Gemini-mi](https://github.com/SherlockChiang/Gemini-mi)。
+感谢原作者 [SherlockChiang](https://github.com/SherlockChiang) 完成 GeminiMi 的原始设计、
+HyperOS/LSPosed 适配与开源发布。本 Fork 仅在原项目基础上补充特定 HyperOS 2 ROM 的
+电源键策略类兼容性。
+
 ## 工作原理
 
 - `PowerKeyOverlayHook` 接管 HyperOS 的长按电源键助手入口，通过系统语音交互服务显示
