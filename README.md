@@ -79,8 +79,9 @@ assistant settings write success=true verified=true
 原方法；启动失败会继续执行系统原逻辑，避免长按电源键失效。
 
 针对 HyperOS 2.0.15.0，模块还会精确 Hook
-`ShortCutActionsUtils#launchVoiceAssistant(String, Bundle)`。仅当快捷键来源为
-`long_press_power_key` 时转交 Gemini Overlay，不影响耳机、语音唤醒或其他小爱入口。
+`ShortCutActionsUtils#launchVoiceAssistant(String, Bundle)`。仅当快捷键来源为长按电源键
+（`long_press_power_key`）或长按菜单键（`long_press_menu_key`）时转交 Gemini Overlay，
+不影响耳机、语音唤醒或其他小爱入口。
 
 本 Fork 的 Debug APK 使用本地调试证书签名，不能直接覆盖安装原作者正式版。测试前请
 先卸载原版，再安装 Debug APK，并在 LSPosed 中重新启用模块、勾选 `android` 和
@@ -91,12 +92,12 @@ assistant settings write success=true verified=true
 本项目 Fork 自 [SherlockChiang/Gemini-mi](https://github.com/SherlockChiang/Gemini-mi)。
 感谢原作者 [SherlockChiang](https://github.com/SherlockChiang) 完成 GeminiMi 的原始设计、
 HyperOS/LSPosed 适配与开源发布。本 Fork 仅在原项目基础上补充特定 HyperOS 2 ROM 的
-电源键策略类兼容性。
+电源键策略类兼容性，以及长按菜单键启动 Gemini Overlay 的适配。
 
 ## 工作原理
 
-- `PowerKeyOverlayHook` 接管 HyperOS 的长按电源键助手入口，通过系统语音交互服务显示
-  Overlay。
+- `PowerKeyOverlayHook` 接管 HyperOS 的长按电源键和长按菜单键助手入口，通过系统语音
+  交互服务显示 Overlay。
 - `AssistantPersistHook` 设置并验证 Google 助手相关的 Secure/Global 设置。
 - `XiaoAiPowerKeyDisableHook` 精确覆盖超级小爱的 `power_wakeup` 偏好。
 

@@ -74,17 +74,18 @@ public final class PowerKeyOverlayHook {
                     try {
                         if (param.args == null || param.args.length < 1
                                 || !(param.args[0] instanceof String)
-                                || !HookPolicy.isPowerLongPressShortcut(
+                                || !HookPolicy.isAssistantLongPressShortcut(
                                 (String) param.args[0])) {
                             return;
                         }
+                        String shortcut = (String) param.args[0];
                         Context ctx = (Context) XposedHelpers.getObjectField(
                                 param.thisObject, "mContext");
                         if (ctx != null && sendAssist(ctx)) {
                             param.setResult(true);
                             XposedBridge.log(Constants.TAG
                                     + " intercepted ShortCutActionsUtils#launchVoiceAssistant"
-                                    + " for long_press_power_key");
+                                    + " for " + shortcut);
                         }
                     } catch (Throwable t) {
                         XposedBridge.log(Constants.TAG

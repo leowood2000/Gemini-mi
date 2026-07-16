@@ -31,10 +31,11 @@ public class HookPolicyTest {
     }
 
     @Test
-    public void matchesOnlyLongPressPowerShortcut() {
-        assertTrue(HookPolicy.isPowerLongPressShortcut("long_press_power_key"));
-        assertFalse(HookPolicy.isPowerLongPressShortcut("headset"));
-        assertFalse(HookPolicy.isPowerLongPressShortcut(null));
+    public void matchesOnlySupportedAssistantLongPressShortcuts() {
+        assertTrue(HookPolicy.isAssistantLongPressShortcut("long_press_power_key"));
+        assertTrue(HookPolicy.isAssistantLongPressShortcut("long_press_menu_key"));
+        assertFalse(HookPolicy.isAssistantLongPressShortcut("headset"));
+        assertFalse(HookPolicy.isAssistantLongPressShortcut(null));
     }
 
     private static Method method(String name) throws Exception {
