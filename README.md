@@ -78,6 +78,10 @@ assistant settings write success=true verified=true
 小米策略子类、并直接启动超级小爱的情况。只有 Gemini Overlay 成功启动时才拦截
 原方法；启动失败会继续执行系统原逻辑，避免长按电源键失效。
 
+针对 HyperOS 2.0.15.0，模块还会精确 Hook
+`ShortCutActionsUtils#launchVoiceAssistant(String, Bundle)`。仅当快捷键来源为
+`long_press_power_key` 时转交 Gemini Overlay，不影响耳机、语音唤醒或其他小爱入口。
+
 本 Fork 的 Debug APK 使用本地调试证书签名，不能直接覆盖安装原作者正式版。测试前请
 先卸载原版，再安装 Debug APK，并在 LSPosed 中重新启用模块、勾选 `android` 和
 `com.miui.voiceassist` 后重启。不要同时启用两个不同来源的 GeminiMi 模块。

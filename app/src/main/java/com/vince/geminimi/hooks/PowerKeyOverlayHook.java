@@ -23,6 +23,8 @@ public final class PowerKeyOverlayHook {
             "com.android.server.policy.BaseMiuiPhoneWindowManager",
             "com.android.server.policy.MiuiPhoneWindowManager"
     };
+    private static final String MIUI_SHORTCUT_ACTIONS =
+            "com.miui.server.input.util.ShortCutActionsUtils";
     private static final int SHOW_WITH_ASSIST = 1;
     private static final int SHOW_WITH_SCREENSHOT = 1 << 1;
     private static final int SHOW_SOURCE_PUSH_TO_TALK = 1 << 4;
@@ -57,7 +59,47 @@ public final class PowerKeyOverlayHook {
                 }
             }
         }
+        hooked += hookMiuiShortcutAction(cl);
         XposedBridge.log(Constants.TAG + " PowerKeyOverlay hooked " + hooked + " method(s)");
+    }
+
+    private static int hookMiuiShortcutAction(ClassLoader cl) {
+        try {
+            Class<?> shortcutActions = XposedHelpers.findClass(MIUI_SHORTCUT_ACTIONS, cl);
+            java.lang.reflect.Method method = shortcutActions.getDeclaredMethod(
+                    "launchVoiceAssistant", String.class, android.os.Bundle.class);
+            XposedBridge.hookMethod(method, new XC_MethodHook() {
+                @Override
+                protected void beforeHookedMethod(MethodHookParam param) {
+                    try {
+                        if (param.args == null || param.args.length < 1
+                                || !(param.args[0] instanceof String)
+                                || !HookPolicy.isPowerLongPressShortcut(
+                                (String) param.args[0])) {
+                            return;
+                        }
+                        Context ctx = (Context) XposedHelpers.getObjectField(
+                                param.thisObject, "mContext");
+                        if (ctx != null && sendAssist(ctx)) {
+                            param.setResult(true);
+                            XposedBridge.log(Constants.TAG
+                                    + " intercepted ShortCutActionsUtils#launchVoiceAssistant"
+                                    + " for long_press_power_key");
+                        }
+                    } catch (Throwable t) {
+                        XposedBridge.log(Constants.TAG
+                                + " shortcut callback failed; falling back to XiaoAi: " + t);
+                    }
+                }
+            });
+            XposedBridge.log(Constants.TAG + " hooked ShortCutActionsUtils#launchVoiceAssistant "
+                    + method);
+            return 1;
+        } catch (Throwable t) {
+            XposedBridge.log(Constants.TAG
+                    + " ShortCutActionsUtils#launchVoiceAssistant hook failed: " + t);
+            return 0;
+        }
     }
 
     private static void hookOne(Class<?> clazz, java.lang.reflect.Method m) {
