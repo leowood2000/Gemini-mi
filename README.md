@@ -23,6 +23,8 @@
 - 将系统长按电源键行为设置为“数字助理”
 - 在开机和用户解锁时恢复被 HyperOS 重置的助手设置
 - 支持 Android 多用户分别写入助手设置
+- v1.0.6 起，每次唤起 Overlay 前会先清理旧的 VoiceInteraction 会话，减少 Gemini
+  因网络异常或上次半启动后只在屏幕边缘闪一下的问题
 
 ## 安装
 
@@ -57,6 +59,8 @@ assistant settings write success=true verified=true
 - `hooked 0 method(s)`：当前 HyperOS 版本使用了未知的方法名，需要针对该 ROM 适配。
 - `showSessionForActiveService failed`：当前 ROM 的隐藏系统接口签名不同，请在 Issue 中附上完整日志。
 - 弹出 Gemini 普通应用而非 Overlay：确认 Google App 的数字助理已切换为 Gemini，并重启设备。
+- 屏幕边缘闪一下但 Overlay 没停留：通常是 Google/Gemini 的旧 VoiceInteraction 会话卡住。
+  v1.0.6 会在每次唤起前执行保守复位；升级后请重启设备，让 LSPosed 重新加载模块。
 - 重启后仍是小爱：确认 LSPosed 作用域包含 `android` 和 `com.miui.voiceassist`。
 
 反馈问题时请提供设备型号、HyperOS/Android 版本、Google App/Gemini 版本和上述日志。
@@ -82,6 +86,11 @@ assistant settings write success=true verified=true
 `ShortCutActionsUtils#launchVoiceAssistant(String, Bundle)`。仅当快捷键来源为长按电源键
 （`long_press_power_key`）或长按菜单键（`long_press_menu_key`）时转交 Gemini Overlay，
 不影响耳机、语音唤醒或其他小爱入口。
+
+从 v1.0.6 起，本 Fork 在调用 `showSessionForActiveService()` 前会先调用
+`hideCurrentSession()` 并等待 120ms，再显示新的 Gemini Overlay。这是保守复位方案，
+用于处理无 VPN、网络异常或 Google/Gemini 半启动后残留旧助手会话的问题。代价是每次
+唤起可能增加约 120ms 延迟。
 
 本 Fork 的 Debug APK 使用本地调试证书签名，不能直接覆盖安装原作者正式版。测试前请
 先卸载原版，再安装 Debug APK，并在 LSPosed 中重新启用模块、勾选 `android` 和
