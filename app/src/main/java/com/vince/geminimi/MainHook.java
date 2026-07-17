@@ -1,6 +1,7 @@
 package com.vince.geminimi;
 
 import com.vince.geminimi.hooks.AssistantPersistHook;
+import com.vince.geminimi.hooks.GeminiStatusBarHook;
 import com.vince.geminimi.hooks.PowerKeyOverlayHook;
 import com.vince.geminimi.hooks.XiaoAiPowerKeyDisableHook;
 
@@ -16,6 +17,7 @@ public class MainHook implements IXposedHookLoadPackage {
             case Constants.SYSTEM:
                 PowerKeyOverlayHook.apply(lpp);
                 AssistantPersistHook.applySystemServer(lpp);
+                GeminiStatusBarHook.apply(lpp);
                 break;
             case Constants.XIAOAI_PKG:
                 XiaoAiPowerKeyDisableHook.apply(lpp);
