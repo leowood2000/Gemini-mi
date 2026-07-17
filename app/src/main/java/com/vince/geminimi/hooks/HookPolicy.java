@@ -7,6 +7,9 @@ final class HookPolicy {
     static final String POWER_WAKEUP_KEY = "power_wakeup";
     static final String POWER_LONG_PRESS_SHORTCUT = "long_press_power_key";
     static final String MENU_LONG_PRESS_SHORTCUT = "long_press_menu_key";
+    static final String GOOGLE_APP = "com.google.android.googlequicksearchbox";
+    static final int TYPE_VOICE_INTERACTION = 2031;
+    static final int PIXEL_FORMAT_TRANSPARENT = -2;
 
     private HookPolicy() {}
 
@@ -34,5 +37,12 @@ final class HookPolicy {
     static boolean isAssistantLongPressShortcut(String shortcut) {
         return POWER_LONG_PRESS_SHORTCUT.equals(shortcut)
                 || MENU_LONG_PRESS_SHORTCUT.equals(shortcut);
+    }
+
+    static boolean shouldBypassVoiceInteractionPolicy(
+            int type, int format, String packageName) {
+        return type == TYPE_VOICE_INTERACTION
+                && format == PIXEL_FORMAT_TRANSPARENT
+                && GOOGLE_APP.equals(packageName);
     }
 }

@@ -56,15 +56,26 @@ jobs:
           ./gradlew assembleRelease
       - name: Verify release APK
         run: |
-          "$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose app/build/outputs/apk/release/app-release.apk
-          sha256sum app/build/outputs/apk/release/app-release.apk > app/build/outputs/apk/release/app-release.apk.sha256
+          VERSION_NAME="$(sed -n 's/.*versionName "\([^"]*\)".*/\1/p' app/build.gradle)"
+          test -n "$VERSION_NAME"
+          APK_NAME="GeminiMi-${VERSION_NAME}.apk"
+          APK_PATH="app/build/outputs/apk/release/${APK_NAME}"
+          cp app/build/outputs/apk/release/app-release.apk "$APK_PATH"
+          CERT_OUTPUT="$("$ANDROID_HOME/build-tools/34.0.0/apksigner" verify --verbose --print-certs "$APK_PATH")"
+          echo "$CERT_OUTPUT"
+          ! echo "$CERT_OUTPUT" | grep -qi "Android Debug"
+          (cd "$(dirname "$APK_PATH")" && sha256sum "$APK_NAME" > "${APK_NAME}.sha256")
+          echo "VERSION_NAME=$VERSION_NAME" >> "$GITHUB_ENV"
+          echo "APK_NAME=$APK_NAME" >> "$GITHUB_ENV"
+          echo "APK_PATH=$APK_PATH" >> "$GITHUB_ENV"
       - name: Publish GitHub Release
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1 || \
-            gh release create "${GITHUB_REF_NAME}" --generate-notes --verify-tag
+            gh release create "${GITHUB_REF_NAME}" \
+              --title "GeminiMi-${VERSION_NAME}" --generate-notes --verify-tag
           gh release upload "${GITHUB_REF_NAME}" \
-            app/build/outputs/apk/release/app-release.apk \
-            app/build/outputs/apk/release/app-release.apk.sha256 \
+            "${APK_PATH}" \
+            "${APK_PATH}.sha256" \
             --clobber
